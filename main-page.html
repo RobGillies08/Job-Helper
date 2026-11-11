@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Job Helper</title>
+	<style>
+		body { margin: 0; padding: 2rem 1rem; background: #f3f6fb; color: #172033; font: 16px/1.5 system-ui, sans-serif; }
+		main { max-width: 760px; margin: auto; padding: 2rem; background: white; border-radius: 14px; box-shadow: 0 8px 30px #17203318; }
+		h1 { margin-top: 0; }
+		.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.25rem; }
+		label { display: block; font-weight: 650; margin-bottom: .35rem; }
+		.hint { margin: 0 0 .5rem; color: #58647a; font-size: .9rem; }
+		textarea { box-sizing: border-box; width: 100%; min-height: 170px; padding: .75rem; border: 1px solid #bdc7d6; border-radius: 8px; font: inherit; }
+		textarea:focus { outline: 3px solid #2d6cdf44; border-color: #2d6cdf; }
+		button { margin-top: 1.25rem; padding: .7rem 1rem; border: 0; border-radius: 8px; background: #245fca; color: white; font: inherit; font-weight: 650; cursor: pointer; }
+		button:hover { background: #174ca9; }
+		#message { color: #a12a2a; min-height: 1.5em; }
+		#results:empty { display: none; }
+		#results h2 { font-size: 1.2rem; }
+		#results ul { list-style: none; padding: 0; margin: 0; border: 1px solid #e0e5ed; border-radius: 8px; overflow: hidden; }
+		#results li { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem .85rem; }
+		#results li + li { border-top: 1px solid #e0e5ed; }
+		#results li:nth-child(even) { background: #f7f9fc; }
+		@media (max-width: 480px) { main { padding: 1.25rem; } }
+	</style>
+</head>
+<body>
+	<main>
+		<h1>Job Helper</h1>
+		<p>Enter the people who are present and the jobs that need doing. Each person gets one job, with jobs shared as evenly as possible.</p>
+		<div class="fields">
+			<section>
+				<label for="people">People present</label>
+				<p class="hint">Enter one name per line.</p>
+				<textarea id="people" placeholder="Alex&#10;Jordan&#10;Sam" autocomplete="off"></textarea>
+			</section>
+			<section>
+				<label for="jobs">Jobs</label>
+				<p class="hint">Enter one job per line. Repeat a job to assign multiple people to it.</p>
+				<textarea id="jobs" autocomplete="off">Enterance hall + Classroom 1
+Enterance hall + Classroom 1
+Classroom 2 + 3 + FS
+Classroom 2 + 3 + FS
+Parade hall + Lobby
+Parade hall + Lobby
+Canteen
+Canteen
+Bins
+Toilets</textarea>
+			</section>
+		</div>
+		<button id="assign" type="button">Assign jobs</button>
+		<p id="message" role="alert" aria-live="polite"></p>
+		<section id="results" aria-live="polite"></section>
+	</main>
+	<script>
+		const peopleField = document.getElementById('people');
+		const jobsField = document.getElementById('jobs');
+		const message = document.getElementById('message');
+		const results = document.getElementById('results');
+
+		function readLines(value) {
+			return value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+		}
+
+		document.getElementById('assign').addEventListener('click', () => {
+			const people = readLines(peopleField.value);
+			const jobs = readLines(jobsField.value);
+			results.replaceChildren();
+
+			if (people.length === 0 || jobs.length === 0) {
+				message.textContent = 'Please enter at least one person and one job.';
+				return;
+			}
+			message.textContent = '';
+
+			// Shuffle people, then cycle through the job list for a balanced assignment.
+			for (let i = people.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[people[i], people[j]] = [people[j], people[i]];
+			}
+
+			const heading = document.createElement('h2');
+			heading.textContent = 'Assignments';
+			const list = document.createElement('ul');
+			people.forEach((person, index) => {
+				const row = document.createElement('li');
+				const name = document.createElement('span');
+				const job = document.createElement('strong');
+				name.textContent = person;
+				job.textContent = jobs[index % jobs.length];
+				row.append(name, job);
+				list.append(row);
+			});
+			results.append(heading, list);
+		});
+	</script>
+</body>
+</html>
