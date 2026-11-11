@@ -105,26 +105,31 @@
 			}
 			message.textContent = '';
 
-			// Shuffle people and available job spots so excess people are unassigned at random.
+			// Shuffle people so assignment is random while job rows retain their predefined order.
 			for (let i = people.length - 1; i > 0; i--) {
 				const j = Math.floor(Math.random() * (i + 1));
 				[people[i], people[j]] = [people[j], people[i]];
-			}
-			for (let i = selectedJobs.length - 1; i > 0; i--) {
-				const j = Math.floor(Math.random() * (i + 1));
-				[selectedJobs[i], selectedJobs[j]] = [selectedJobs[j], selectedJobs[i]];
 			}
 
 			const heading = document.createElement('h2');
 			heading.textContent = 'Assignments';
 			const list = document.createElement('ul');
-			people.forEach((person, index) => {
+			selectedJobs.forEach((job, index) => {
 				const row = document.createElement('li');
 				const name = document.createElement('span');
-				const job = document.createElement(index < selectedJobs.length ? 'strong' : 'span');
+				const assignment = document.createElement('strong');
+				name.textContent = people[index];
+				assignment.textContent = job;
+				row.append(name, assignment);
+				list.append(row);
+			});
+			people.slice(selectedJobs.length).forEach(person => {
+				const row = document.createElement('li');
+				const name = document.createElement('span');
+				const assignment = document.createElement('span');
 				name.textContent = person;
-				job.textContent = index < selectedJobs.length ? selectedJobs[index] : 'No job';
-				row.append(name, job);
+				assignment.textContent = 'No job';
+				row.append(name, assignment);
 				list.append(row);
 			});
 			results.append(heading, list);
