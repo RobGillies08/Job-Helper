@@ -7,6 +7,8 @@
 	<style>
 		body { margin: 0; padding: 2rem 1rem; background: #f3f6fb; color: #172033; font: 16px/1.5 system-ui, sans-serif; }
 		main { max-width: 760px; margin: auto; padding: 2rem; background: white; border-radius: 14px; box-shadow: 0 8px 30px #17203318; }
+		.page-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+		.page-header h1 { margin-bottom: 0; }
 		h1 { margin-top: 0; }
 		.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.25rem; }
 		label { display: block; font-weight: 650; margin-bottom: .35rem; }
@@ -19,6 +21,9 @@
 		.job-option { display: flex; align-items: center; gap: .5rem; margin: 0; font-weight: 400; }
 		.job-option input { margin: 0; }
 		.job-count { margin-left: auto; color: #58647a; font-size: .9rem; }
+		#additional-jobs { min-height: 5rem; }
+		#add-jobs { margin-top: .5rem; }
+		#job-message { min-height: 1.5em; margin: .5rem 0 0; color: #245fca; }
 		button { margin-top: 1.25rem; padding: .7rem 1rem; border: 0; border-radius: 8px; background: #245fca; color: white; font: inherit; font-weight: 650; cursor: pointer; }
 		button:hover { background: #174ca9; }
 		#message { color: #a12a2a; min-height: 1.5em; }
@@ -28,12 +33,30 @@
 		#results li { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem .85rem; }
 		#results li + li { border-top: 1px solid #e0e5ed; }
 		#results li:nth-child(even) { background: #f7f9fc; }
+		#theme-toggle { flex-shrink: 0; margin-top: 0; }
+		body.dark-mode { background: #141a24; color: #e6ebf2; }
+		body.dark-mode main { background: #202938; box-shadow: 0 8px 30px #0006; }
+		body.dark-mode .hint, body.dark-mode .job-count { color: #b2bfd2; }
+		body.dark-mode textarea { background: #151d29; color: #e6ebf2; border-color: #526176; }
+		body.dark-mode textarea::placeholder { color: #9aa8bb; }
+		body.dark-mode fieldset { border-color: #526176; }
+		body.dark-mode input[type="checkbox"] { accent-color: #75a5ff; }
+		body.dark-mode button { background: #3978df; }
+		body.dark-mode button:hover { background: #518be9; }
+		body.dark-mode #job-message { color: #9fc0ff; }
+		body.dark-mode #message { color: #ff9a9a; }
+		body.dark-mode #results ul { border-color: #526176; }
+		body.dark-mode #results li + li { border-color: #526176; }
+		body.dark-mode #results li:nth-child(even) { background: #293648; }
 		@media (max-width: 480px) { main { padding: 1.25rem; } }
 	</style>
 </head>
 <body>
 	<main>
-		<h1>Job Helper</h1>
+		<header class="page-header">
+			<h1>Job Helper</h1>
+			<button id="theme-toggle" type="button" aria-pressed="false">Switch to dark mode</button>
+		</header>
 		<p>Enter the people who are present and choose which jobs to hand out. Each available job spot can be assigned to one person.</p>
 		<div class="fields">
 			<section>
@@ -46,6 +69,11 @@
 					<legend>Jobs</legend>
 					<p class="hint">Choose which jobs are available. The number shows how many people can be assigned each job.</p>
 					<div id="job-options" class="job-options"></div>
+					<label for="additional-jobs">Add more specific jobs</label>
+					<p class="hint">Enter one job per line. Repeating a job adds another spot.</p>
+					<textarea id="additional-jobs" placeholder="Canteen - wipe tables&#10;Canteen - sweep floor" autocomplete="off"></textarea>
+					<button id="add-jobs" type="button">Add jobs to list</button>
+					<p id="job-message" role="status" aria-live="polite"></p>
 				</fieldset>
 			</section>
 		</div>
@@ -68,8 +96,17 @@
 		];
 		const peopleField = document.getElementById('people');
 		const jobOptions = document.getElementById('job-options');
+		const additionalJobsField = document.getElementById('additional-jobs');
+		const jobMessage = document.getElementById('job-message');
 		const message = document.getElementById('message');
 		const results = document.getElementById('results');
+		const themeToggle = document.getElementById('theme-toggle');
+
+		themeToggle.addEventListener('click', () => {
+			const isDarkMode = document.body.classList.toggle('dark-mode');
+			themeToggle.setAttribute('aria-pressed', String(isDarkMode));
+			themeToggle.textContent = isDarkMode ? 'Switch to light mode' : 'Switch to dark mode';
+		});
 
 		function readLines(value) {
 			return value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -77,7 +114,10 @@
 
 		const jobCounts = new Map();
 		jobSlots.forEach(job => jobCounts.set(job, (jobCounts.get(job) || 0) + 1));
-		jobCounts.forEach((count, job) => {
+		const jobCheckboxes = new Map();
+		const jobCapacities = new Map();
+
+		function renderJobOption(job, count) {
 			const label = document.createElement('label');
 			label.className = 'job-option';
 			const checkbox = document.createElement('input');
@@ -91,6 +131,32 @@
 			capacity.textContent = `${count} ${count === 1 ? 'spot' : 'spots'}`;
 			label.append(checkbox, name, capacity);
 			jobOptions.append(label);
+			jobCheckboxes.set(job, checkbox);
+			jobCapacities.set(job, capacity);
+		}
+
+		jobCounts.forEach((count, job) => {
+			renderJobOption(job, count);
+		});
+
+		document.getElementById('add-jobs').addEventListener('click', () => {
+			const jobs = readLines(additionalJobsField.value);
+			if (jobs.length === 0) {
+				jobMessage.textContent = 'Enter at least one job to add.';
+				return;
+			}
+
+			jobs.forEach(job => {
+				const count = (jobCounts.get(job) || 0) + 1;
+				jobCounts.set(job, count);
+				if (jobCheckboxes.has(job)) {
+					jobCapacities.get(job).textContent = `${count} spots`;
+				} else {
+					renderJobOption(job, count);
+				}
+			});
+			additionalJobsField.value = '';
+			jobMessage.textContent = `Added ${jobs.length} ${jobs.length === 1 ? 'job spot' : 'job spots'}.`;
 		});
 
 		document.getElementById('assign').addEventListener('click', () => {
