@@ -13,6 +13,12 @@
 		.hint { margin: 0 0 .5rem; color: #58647a; font-size: .9rem; }
 		textarea { box-sizing: border-box; width: 100%; min-height: 170px; padding: .75rem; border: 1px solid #bdc7d6; border-radius: 8px; font: inherit; }
 		textarea:focus { outline: 3px solid #2d6cdf44; border-color: #2d6cdf; }
+		fieldset { min-width: 0; margin: 0; padding: .75rem; border: 1px solid #bdc7d6; border-radius: 8px; }
+		legend { padding: 0 .25rem; font-weight: 650; }
+		.job-options { display: grid; gap: .35rem; }
+		.job-option { display: flex; align-items: center; gap: .5rem; margin: 0; font-weight: 400; }
+		.job-option input { margin: 0; }
+		.job-count { margin-left: auto; color: #58647a; font-size: .9rem; }
 		button { margin-top: 1.25rem; padding: .7rem 1rem; border: 0; border-radius: 8px; background: #245fca; color: white; font: inherit; font-weight: 650; cursor: pointer; }
 		button:hover { background: #174ca9; }
 		#message { color: #a12a2a; min-height: 1.5em; }
@@ -28,7 +34,7 @@
 <body>
 	<main>
 		<h1>Job Helper</h1>
-		<p>Enter the people who are present and the jobs that need doing. Each person gets one job, with jobs shared as evenly as possible.</p>
+		<p>Enter the people who are present and choose which jobs to hand out. Each available job spot can be assigned to one person.</p>
 		<div class="fields">
 			<section>
 				<label for="people">People present</label>
@@ -36,18 +42,11 @@
 				<textarea id="people" placeholder="Alex&#10;Jordan&#10;Sam" autocomplete="off"></textarea>
 			</section>
 			<section>
-				<label for="jobs">Jobs</label>
-				<p class="hint">Enter one job per line. Repeat a job to assign multiple people to it.</p>
-				<textarea id="jobs" autocomplete="off">Enterance hall + Classroom 1
-Enterance hall + Classroom 1
-Classroom 2 + 3 + FS
-Classroom 2 + 3 + FS
-Parade hall + Lobby
-Parade hall + Lobby
-Canteen
-Canteen
-Bins
-Toilets</textarea>
+				<fieldset>
+					<legend>Jobs</legend>
+					<p class="hint">Choose which jobs are available. The number shows how many people can be assigned each job.</p>
+					<div id="job-options" class="job-options"></div>
+				</fieldset>
 			</section>
 		</div>
 		<button id="assign" type="button">Assign jobs</button>
@@ -55,8 +54,20 @@ Toilets</textarea>
 		<section id="results" aria-live="polite"></section>
 	</main>
 	<script>
+		const jobSlots = [
+			'Enterance hall + Classroom 1',
+			'Enterance hall + Classroom 1',
+			'Classroom 2 + 3 + FS',
+			'Classroom 2 + 3 + FS',
+			'Parade hall + Lobby',
+			'Parade hall + Lobby',
+			'Canteen',
+			'Canteen',
+			'Bins',
+			'Toilets'
+		];
 		const peopleField = document.getElementById('people');
-		const jobsField = document.getElementById('jobs');
+		const jobOptions = document.getElementById('job-options');
 		const message = document.getElementById('message');
 		const results = document.getElementById('results');
 
@@ -64,21 +75,44 @@ Toilets</textarea>
 			return value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 		}
 
+		const jobCounts = new Map();
+		jobSlots.forEach(job => jobCounts.set(job, (jobCounts.get(job) || 0) + 1));
+		jobCounts.forEach((count, job) => {
+			const label = document.createElement('label');
+			label.className = 'job-option';
+			const checkbox = document.createElement('input');
+			checkbox.type = 'checkbox';
+			checkbox.value = job;
+			checkbox.checked = true;
+			const name = document.createElement('span');
+			name.textContent = job;
+			const capacity = document.createElement('span');
+			capacity.className = 'job-count';
+			capacity.textContent = `${count} ${count === 1 ? 'spot' : 'spots'}`;
+			label.append(checkbox, name, capacity);
+			jobOptions.append(label);
+		});
+
 		document.getElementById('assign').addEventListener('click', () => {
 			const people = readLines(peopleField.value);
-			const jobs = readLines(jobsField.value);
+			const selectedJobs = Array.from(jobOptions.querySelectorAll('input:checked'))
+				.flatMap(checkbox => Array(jobCounts.get(checkbox.value)).fill(checkbox.value));
 			results.replaceChildren();
 
-			if (people.length === 0 || jobs.length === 0) {
-				message.textContent = 'Please enter at least one person and one job.';
+			if (people.length === 0) {
+				message.textContent = 'Please enter at least one person.';
 				return;
 			}
 			message.textContent = '';
 
-			// Shuffle people, then cycle through the job list for a balanced assignment.
+			// Shuffle people and available job spots so excess people are unassigned at random.
 			for (let i = people.length - 1; i > 0; i--) {
 				const j = Math.floor(Math.random() * (i + 1));
 				[people[i], people[j]] = [people[j], people[i]];
+			}
+			for (let i = selectedJobs.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[selectedJobs[i], selectedJobs[j]] = [selectedJobs[j], selectedJobs[i]];
 			}
 
 			const heading = document.createElement('h2');
@@ -87,9 +121,9 @@ Toilets</textarea>
 			people.forEach((person, index) => {
 				const row = document.createElement('li');
 				const name = document.createElement('span');
-				const job = document.createElement('strong');
+				const job = document.createElement(index < selectedJobs.length ? 'strong' : 'span');
 				name.textContent = person;
-				job.textContent = jobs[index % jobs.length];
+				job.textContent = index < selectedJobs.length ? selectedJobs[index] : 'No job';
 				row.append(name, job);
 				list.append(row);
 			});
